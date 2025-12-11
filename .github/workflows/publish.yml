@@ -2,7 +2,8 @@ name: Publish Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   publish:
@@ -20,9 +21,9 @@ jobs:
         id: semver
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          MAJOR=$(echo $LAST_TAG | cut -d. -f1 | sed 's/v//')
-          MINOR=$(echo $LAST_TAG | cut -d. -f2)
-          PATCH=$(echo $LAST_TAG | cut -d. -f3)
+          MAJOR=$(echo "$LAST_TAG" | cut -d. -f1 | sed 's/v//')
+          MINOR=$(echo "$LAST_TAG" | cut -d. -f2)
+          PATCH=$(echo "$LAST_TAG" | cut -d. -f3)
           NEW_PATCH=$((PATCH + 1))
           NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
@@ -35,8 +36,38 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ---- BUILD & PUSH BACKEND DOCKER IMAGE (app-tier) ----
+      # ---- BUILD BACKEND IMAGE ----
       - name: Build Backend Docker Image
         working-directory: application-code/app-tier
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NE_
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NEW_TAG }} .
+
+      - name: Push Backend Docker Image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NEW_TAG }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
+
+      # ---- BUILD FRONTEND IMAGE ----
+      - name: Build Frontend Docker Image
+        working-directory: application-code/web-tier
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} .
+
+      - name: Push Frontend Docker Image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+
+      # ---- CREATE RELEASE ----
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          name: Release ${{ env.NEW_TAG }}
+          body: |
+            Automated release with Docker images:
+            - backend:${{ env.NEW_TAG }}
+            - frontend:${{ env.NEW_TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
 
