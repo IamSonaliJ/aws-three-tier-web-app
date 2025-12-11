@@ -1,9 +1,10 @@
 name: Release Deployment
 
 on:
-  push:
-    tags:
-      - 'v*'   # Trigger on any tag starting with "v"
+  workflow_run:
+    workflows: ["Publish Pipeline"]
+    types:
+      - completed
 
 jobs:
   deploy:
