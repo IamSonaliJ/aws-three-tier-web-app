@@ -1,26 +1,16 @@
-#!/bin/bash
+[Unit]
+Description=AWS Three-Tier App Deployment
+After=docker.service
+Requires=docker.service
 
-# DockerHub username
-DOCKERHUB_USERNAME=sonalis9
+[Service]
+Type=simple
+User=sonali
+WorkingDirectory=/home/sonali/aws-three-tier/deploy
+ExecStart=/bin/bash /home/sonali/aws-three-tier/deploy/deploy.sh
+Restart=always
+RestartSec=5
 
-# Docker image tag (default to latest)
-IMAGE_TAG=${IMAGE_TAG:-latest}
-
-# Stop old containers
-docker stop backend || true
-docker stop frontend || true
-
-# Remove old containers
-docker rm backend || true
-docker rm frontend || true
-
-# Pull latest images
-docker pull $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
-docker pull $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
-
-# Run backend container
-docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
-
-# Run frontend container
-docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
+[Install]
+WantedBy=multi-user.target
 
