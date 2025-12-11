@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DockerHub username
-DOCKER_USER=yourdockerhubusername
+DOCKER_USER=sonalis9
 
 # Stop old containers
 docker stop backend || true
