@@ -1,0 +1,17 @@
+[Unit]
+Description=AWS Three Tier Web App
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=sonali
+WorkingDirectory=/home/sonali
+ExecStart=/home/sonali/deploy.sh
+Restart=always
+RestartSec=10
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+
