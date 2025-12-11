@@ -1,0 +1,43 @@
+name: Release Deployment
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      # Checkout code at the release tag
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+
+      # Copy deployment files to EC2 runner
+      - name: Copy deployment files
+        run: |
+          mkdir -p ~/aws-three-tier
+          cp -r $GITHUB_WORKSPACE/deploy ~/aws-three-tier/
+
+      # Install systemd service
+      - name: Install systemd service
+        run: |
+          sudo cp ~/aws-three-tier/deploy/aws-three-tier.service /etc/systemd/system/aws-three-tier.service
+          sudo chmod 644 /etc/systemd/system/aws-three-tier.service
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable aws-three-tier
+
+      # Make deploy.sh executable
+      - name: Set deploy.sh permissions
+        run: |
+          sudo chmod +x ~/aws-three-tier/deploy/deploy.sh
+
+      # Restart the app using systemd
+      - name: Restart Service
+        run: |
+          sudo systemctl restart aws-three-tier
+          sudo systemctl status aws-three-tier --no-pager || true
