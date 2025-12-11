@@ -67,6 +67,12 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }}
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+      - name: Prevent duplicate tag
+        run: |
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEW_TAG already exists. Exiting."
+            exit 0
+          fi
 
       # 7) CREATE RELEASE
       - name: Create GitHub Release
