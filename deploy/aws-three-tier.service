@@ -1,16 +1,16 @@
 [Unit]
-Description=AWS Three-Tier App Deployment
-After=docker.service
-Requires=docker.service
+Description=AWS Three-Tier Deployment Service
+After=network.target docker.service
 
 [Service]
-Type=simple
+Type=oneshot
 User=sonali
 WorkingDirectory=/home/sonali/aws-three-tier/deploy
 ExecStart=/bin/bash /home/sonali/aws-three-tier/deploy/deploy.sh
-Restart=always
-RestartSec=5
+RemainAfterExit=yes
+Restart=no
 
 [Install]
 WantedBy=multi-user.target
+
 
