@@ -3,6 +3,9 @@
 # DockerHub username
 DOCKERHUB_USERNAME=sonalis9
 
+# Docker image tag (default to latest)
+IMAGE_TAG=${IMAGE_TAG:-latest}
+
 # Stop old containers
 docker stop backend || true
 docker stop frontend || true
@@ -12,11 +15,11 @@ docker rm backend || true
 docker rm frontend || true
 
 # Pull latest images
-docker pull $DOCKERHUB_USERNAME/backend:latest
-docker pull $DOCKERHUB_USERNAME/frontend:latest
+docker pull $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
+docker pull $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
 
 # Run backend container
-docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:latest
+docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
 
 # Run frontend container
-docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:latest
+docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
