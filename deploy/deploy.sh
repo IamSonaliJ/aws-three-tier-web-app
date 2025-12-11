@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# DockerHub username
-DOCKERHUB_USERNAME=sonalis9
+set -e
 
-# Docker image tag (default to latest)
-IMAGE_TAG=${IMAGE_TAG:-latest}
+DOCKERHUB_USERNAME="sonalis9"
 
-# Stop old containers
+echo "Stopping old containers..."
 docker stop backend || true
 docker stop frontend || true
 
-# Remove old containers
+echo "Removing old containers..."
 docker rm backend || true
 docker rm frontend || true
 
-# Pull latest images
-docker pull $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
-docker pull $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
+echo "Pulling latest images..."
+docker pull $DOCKERHUB_USERNAME/backend:latest
+docker pull $DOCKERHUB_USERNAME/frontend:latest
 
-# Run backend container
-docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:$IMAGE_TAG
+echo "Starting backend..."
+docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:latest
 
-# Run frontend container
-docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:$IMAGE_TAG
+echo "Starting frontend..."
+docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:latest
+
+echo "Deployment completed successfully!"
