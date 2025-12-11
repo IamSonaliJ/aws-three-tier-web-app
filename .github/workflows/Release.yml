@@ -1,16 +1,16 @@
 name: Release Deployment
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   deploy:
     runs-on: self-hosted
 
     steps:
-      # Checkout code at the release tag
+      # Checkout the exact tag
       - name: Checkout Code
         uses: actions/checkout@v3
         with:
@@ -35,6 +35,13 @@ jobs:
       - name: Set deploy.sh permissions
         run: |
           sudo chmod +x ~/aws-three-tier/deploy/deploy.sh
+
+      # Restart app
+      - name: Restart Service
+        run: |
+          sudo systemctl restart aws-three-tier
+          sudo systemctl status aws-three-tier --no-pager || true
+
 
       # Restart the app using systemd
       - name: Restart Service
