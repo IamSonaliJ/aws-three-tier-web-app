@@ -10,13 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1) CHECKOUT
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # ---- FETCH TAGS FOR SEMVER ----
+      # 2) FETCH TAGS (needed for semver bump)
       - name: Fetch all tags
         run: git fetch --tags
 
+      # 3) AUTO SEMVER LOGIC
       - name: Determine Semantic Version
         id: semver
         run: |
@@ -29,14 +31,14 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
           echo "new_tag=$NEW_TAG"
 
-      # ---- DOCKER LOGIN ----
+      # 4) LOGIN TO DOCKER HUB
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ---- BUILD BACKEND IMAGE ----
+      # 5) BACKEND IMAGE BUILD
       - name: Build Backend Docker Image
         working-directory: application-code/app-tier
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NEW_TAG }} .
@@ -47,7 +49,7 @@ jobs:
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest
 
-      # ---- BUILD FRONTEND IMAGE ----
+      # 6) FRONTEND IMAGE BUILD
       - name: Build Frontend Docker Image
         working-directory: application-code/web-tier
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} .
@@ -58,7 +60,7 @@ jobs:
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
 
-      # ---- CREATE RELEASE ----
+      # 7) CREATE RELEASE
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -70,4 +72,5 @@ jobs:
             - frontend:${{ env.NEW_TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_TOKEN }}
+
 
