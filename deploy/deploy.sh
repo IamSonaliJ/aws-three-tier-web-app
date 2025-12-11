@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DockerHub username
-DOCKER_USER=sonalis9
+DOCKERHUB_USERNAME=sonalis9
 
 # Stop old containers
 docker stop backend || true
@@ -12,11 +12,11 @@ docker rm backend || true
 docker rm frontend || true
 
 # Pull latest images
-docker pull $DOCKER_USER/backend:latest
-docker pull $DOCKER_USER/frontend:latest
+docker pull $DOCKERHUB_USERNAME/backend:latest
+docker pull $DOCKERHUB_USERNAME/frontend:latest
 
 # Run backend container
-docker run -d --name backend -p 4000:4000 $DOCKER_USER/backend:latest
+docker run -d --name backend -p 4000:4000 $DOCKERHUB_USERNAME/backend:latest
 
 # Run frontend container
-docker run -d --name frontend -p 3000:80 $DOCKER_USER/frontend:latest
+docker run -d --name frontend -p 3000:80 $DOCKERHUB_USERNAME/frontend:latest
