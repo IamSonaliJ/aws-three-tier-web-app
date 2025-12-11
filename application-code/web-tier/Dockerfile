@@ -1,4 +1,4 @@
-# Build stage
+# this is Build stage
 FROM node:18-alpine AS build
 
 WORKDIR /usr/src/app
