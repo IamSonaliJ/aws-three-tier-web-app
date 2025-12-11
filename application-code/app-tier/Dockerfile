@@ -1,20 +1,20 @@
-# Use official Node.js image
-FROM node:16
+# Use official Node.js LTS Alpine (slim) image
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /usr/src/app
 
-# Copy package files first (for dependency install caching)
+# Copy package.json / package-lock.json (if exists)
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install dependencies (production only)
+RUN npm ci --only=production
 
-# Copy rest of the backend code
+# Copy rest of backend code
 COPY . .
 
-# Expose the port your Node.js app uses
+# Expose port (assuming backend listens on 4000 as per repo README)
 EXPOSE 4000
 
-# Default command
+# Start the app
 CMD ["node", "index.js"]
