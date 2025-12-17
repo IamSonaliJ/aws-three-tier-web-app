@@ -5,9 +5,9 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
-User=sonali
-WorkingDirectory=/home/sonali/aws-three-tier/deploy
-ExecStart=/bin/bash /home/sonali/aws-three-tier/deploy/deploy.sh
+User=github
+WorkingDirectory=/home/github/aws-three-tier/deploy
+ExecStart=/bin/bash /home/github/aws-three-tier/deploy/deploy.sh
 RemainAfterExit=yes
 Restart=no
 
