@@ -13,6 +13,8 @@ jobs:
       # 1) CHECKOUT
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # IMPORTANT for tags
 
       # 2) FETCH TAGS
       - name: Fetch all tags
@@ -20,7 +22,6 @@ jobs:
 
       # 3) AUTO SEMVER LOGIC
       - name: Determine Semantic Version
-        id: semver
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           MAJOR=$(echo "$LAST_TAG" | cut -d. -f1 | sed 's/v//')
@@ -29,11 +30,21 @@ jobs:
           NEW_PATCH=$((PATCH + 1))
           NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "new_tag=$NEW_TAG"
 
-      # 3.5) PUSH NEW TAG (MOST IMPORTANT)
-      - name: Push Git Tag
+      # 3.5) SAFE TAG CREATION (FIXED)
+      - name: Create Git Tag Safely
         run: |
+          git fetch --tags
+
+          if git tag | grep -q "^${{ env.NEW_TAG }}$"; then
+            git tag -d ${{ env.NEW_TAG }}
+          fi
+
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ env.NEW_TAG }}"; then
+            echo "Remote tag already exists. Skipping tag creation."
+            exit 0
+          fi
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag ${{ env.NEW_TAG }}
@@ -67,12 +78,6 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }}
           docker tag ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ env.NEW_TAG }} ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
-      - name: Prevent duplicate tag
-        run: |
-          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
-            echo "Tag $NEW_TAG already exists. Exiting."
-            exit 0
-          fi
 
       # 7) CREATE RELEASE
       - name: Create GitHub Release
