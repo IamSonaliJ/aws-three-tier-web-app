@@ -3,7 +3,7 @@ name: Deploy Two Ter (Web +Backend)
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   deploy:
