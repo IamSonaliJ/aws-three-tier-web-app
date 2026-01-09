@@ -1,4 +1,4 @@
-name: Deploy Two Ter (Web +Backend)
+name: Deploy Two Tier (Web + Backend)
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
           role-to-assume: arn:aws:iam::632718277269:role/sonaliJ-oidc-github-role
           aws-region: ap-south-1
 
-      - name: AWS Identity Checkk
+      - name: AWS Identity Check
         run: aws sts get-caller-identity
 
       - name: Fetch Docker creds
@@ -39,31 +39,38 @@ jobs:
         run: |
           echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
+      # Set Tag
+      - name: Set image tag
+        run: echo "NEW_TAG=$(date +%s)" >> $GITHUB_ENV
+
       ########################
       # BUILD – BACKEND
       ########################
       - name: Build Backend Image
         working-directory: application-code/app-tier
-        run: |
-          docker build -t "$DOCKER_USERNAME/node-backend:latest" ./app-tier
-          
+        run: docker build -t $DOCKER_USERNAME/backend:${NEW_TAG} .
 
       ########################
       # BUILD – FRONTEND
-      ######################
+      ########################
       - name: Build Web Image
         working-directory: application-code/web-tier
-        run: |
-          docker build -t "$DOCKER_USERNAME/react-web:latest" ./web-tier
+        run: docker build -t $DOCKER_USERNAME/frontend:${NEW_TAG} .
 
       ########################
       # PUSH IMAGES
       ########################
       - name: Push Backend
-        run: docker push "$DOCKER_USERNAME/node-backend:latest"
+        run: |
+          docker push $DOCKER_USERNAME/backend:${NEW_TAG}
+          docker tag $DOCKER_USERNAME/backend:${NEW_TAG} $DOCKER_USERNAME/backend:latest
+          docker push $DOCKER_USERNAME/backend:latest
 
       - name: Push Web
-        run: docker push "$DOCKER_USERNAME/react-web:latest"
+        run: |
+          docker push $DOCKER_USERNAME/frontend:${NEW_TAG}
+          docker tag $DOCKER_USERNAME/frontend:${NEW_TAG} $DOCKER_USERNAME/frontend:latest
+          docker push $DOCKER_USERNAME/frontend:latest
 
       ########################
       # DEPLOY to EC2 via SSM
@@ -76,22 +83,22 @@ jobs:
             --comment "Deploy 2-tier app" \
             --parameters 'commands=[
               "set -e",
-              "echo Fetch creds",
+              "echo Fetch creds from secrets",
               "SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)",
               "U=$(echo $SECRET | jq -r .DOCKER_USERNAME)",
               "T=$(echo $SECRET | jq -r .DOCKER_TOKEN)",
-              "echo Login",
+              "echo Login to DockerHub",
               "echo $T | docker login -u $U --password-stdin",
-              "echo Pull web + backend",
-              "docker pull $U/node-backend:latest",
-              "docker pull $U/react-web:latest",
+              "echo Pull latest backend + frontend",
+              "docker pull $U/backend:latest",
+              "docker pull $U/frontend:latest",
               "docker stop web || true",
               "docker stop backend || true",
               "docker rm web || true",
               "docker rm backend || true",
               "echo Run backend",
-              "docker run -d --name backend -p 3000:3000 $U/node-backend:latest",
+              "docker run -d --name backend -p 3000:3000 $U/backend:latest",
               "echo Run web",
-              "docker run -d --name web -p 80:80 $U/react-web:latest"
+              "docker run -d --name web -p 80:80 $U/frontend:latest"
             ]' \
             --output text
