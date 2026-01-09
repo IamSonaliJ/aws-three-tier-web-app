@@ -43,6 +43,7 @@ jobs:
       # BUILD – BACKEND
       ########################
       - name: Build Backend Image
+        working-directory: application-code/app-tier
         run: |
           docker build -t "$DOCKER_USERNAME/node-backend:latest" ./app-tier
           
@@ -51,6 +52,7 @@ jobs:
       # BUILD – FRONTEND
       ######################
       - name: Build Web Image
+        working-directory: application-code/web-tier
         run: |
           docker build -t "$DOCKER_USERNAME/react-web:latest" ./web-tier
 
