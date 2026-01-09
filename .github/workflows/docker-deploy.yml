@@ -1,0 +1,94 @@
+name: Deploy Two Tier (Web + Backend)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::632718277269:role/sonaliJ-oidc-github-role
+          aws-region: ap-south-1
+
+      - name: AWS Identity Check
+        run: aws sts get-caller-identity
+
+      - name: Fetch Docker creds
+        run: |
+          SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)
+          echo "DOCKER_USERNAME=$(echo $SECRET | jq -r '.DOCKER_USERNAME')" >> $GITHUB_ENV
+          echo "DOCKER_TOKEN=$(echo $SECRET | jq -r '.DOCKER_TOKEN')" >> $GITHUB_ENV
+
+      - name: Docker Login
+        run: |
+          echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+      ########################
+      # BUILD – BACKEND
+      ########################
+      - name: Build Backend Image
+        run: |
+          docker build -t "$DOCKER_USERNAME/node-backend:latest" ./app-tier
+
+      ########################
+      # BUILD – FRONTEND
+      ########################
+      - name: Build Web Image
+        run: |
+          docker build -t "$DOCKER_USERNAME/react-web:latest" ./web-tier
+
+      ########################
+      # PUSH IMAGES
+      ########################
+      - name: Push Backend
+        run: docker push "$DOCKER_USERNAME/node-backend:latest"
+
+      - name: Push Web
+        run: docker push "$DOCKER_USERNAME/react-web:latest"
+
+      ########################
+      # DEPLOY to EC2 via SSM
+      ########################
+      - name: Deploy via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids i-06fe393f7e5a98224 \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy 2-tier app" \
+            --parameters 'commands=[
+              "set -e",
+              "echo Fetch creds",
+              "SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)",
+              "U=$(echo $SECRET | jq -r .DOCKER_USERNAME)",
+              "T=$(echo $SECRET | jq -r .DOCKER_TOKEN)",
+              "echo Login",
+              "echo $T | docker login -u $U --password-stdin",
+              "echo Pull web + backend",
+              "docker pull $U/node-backend:latest",
+              "docker pull $U/react-web:latest",
+              "docker stop web || true",
+              "docker stop backend || true",
+              "docker rm web || true",
+              "docker rm backend || true",
+              "echo Run backend",
+              "docker run -d --name backend -p 3000:3000 $U/node-backend:latest",
+              "echo Run web",
+              "docker run -d --name web -p 80:80 $U/react-web:latest"
+            ]' \
+            --output text
