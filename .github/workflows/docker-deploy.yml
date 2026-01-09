@@ -1,4 +1,4 @@
-name: Deploy Two Tier (Web +Backend)
+name: Deploy Two Ter (Web +Backend)
 
 on:
   push:
