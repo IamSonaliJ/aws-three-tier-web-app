@@ -45,10 +45,11 @@ jobs:
       - name: Build Backend Image
         run: |
           docker build -t "$DOCKER_USERNAME/node-backend:latest" ./app-tier
+          
 
       ########################
       # BUILD – FRONTEND
-      ########################
+      ######################
       - name: Build Web Image
         run: |
           docker build -t "$DOCKER_USERNAME/react-web:latest" ./web-tier
