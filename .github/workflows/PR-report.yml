@@ -37,7 +37,6 @@ jobs:
             all.forEach(pr=>{
               const src = pr.head.ref;
               const tgt = pr.base.ref;
-              // Change environment logic as needed
               const env = tgt === "main" || tgt === "master" ? "docker" : "dev";
               const merged = pr.merged_at ? "merged" : pr.state;
               csv += `${pr.number},"${pr.title}",${src},${tgt},${merged},${env},${pr.user.login},${pr.merged_at}\n`;
@@ -46,7 +45,7 @@ jobs:
             writeFileSync("pr-report.csv", csv);
 
       - name: Upload PR report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pr-report
           path: pr-report.csv
