@@ -73,8 +73,6 @@ jobs:
           docker push $DOCKER_USERNAME/frontend:latest
 
       ########################
-      # DEPLOY to EC2 via SSM
-      ########################
       - name: Deploy via SSM
         run: |
           aws ssm send-command \
@@ -82,7 +80,11 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "Deploy 2-tier app" \
             --parameters 'commands=[
-              "set -e",
+              "set -ex",
+              "echo Install Docker if not installed",
+              "sudo dnf install -y docker || true",
+              "sudo systemctl enable docker || true",
+              "sudo systemctl start docker || true",
               "echo Fetch creds from secrets",
               "SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)",
               "U=$(echo $SECRET | jq -r .DOCKER_USERNAME)",
