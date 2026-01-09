@@ -26,7 +26,7 @@ jobs:
           role-to-assume: arn:aws:iam::632718277269:role/sonaliJ-oidc-github-role
           aws-region: ap-south-1
 
-      - name: AWS Identity Check
+      - name: AWS Identity Checkk
         run: aws sts get-caller-identity
 
       - name: Fetch Docker creds
