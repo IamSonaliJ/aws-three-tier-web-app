@@ -1,10 +1,11 @@
 name: PR Report Export
 
-# Trigger manually
+# Trigger manually + nightly
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "20 18 * * *"  # 11:50 PM IST
 
-# OIDC permissions
 permissions:
   id-token: write
   contents: read
@@ -14,17 +15,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Fetch PR data and create CSV
-      - name: Fetch PR data
+      - name: Fetch today's PRs and create CSV
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { writeFileSync } = require('fs');
+            const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+
             let page = 1;
             let all = [];
             while(true){
@@ -39,37 +40,37 @@ jobs:
               all.push(...prs.data);
               page++;
             }
-            let csv = "PR_Number,Title,Source,Target,State,Environment,Author,MergedAt\n";
-            all.forEach(pr=>{
+
+            // Today's PRs (created or updated today)
+            const filtered = all.filter(pr => {
+              const created = pr.created_at?.slice(0,10);
+              const updated = pr.updated_at?.slice(0,10);
+              return created === today || updated === today;
+            });
+
+            let csv = "PR_Number,Title,Source,Target,State,Environment,Author,MergedAt,CreatedAt,UpdatedAt\n";
+            filtered.forEach(pr=>{
               const src = pr.head.ref;
               const tgt = pr.base.ref;
               const env = tgt === "main" || tgt === "master" ? "docker" : "dev";
               const merged = pr.merged_at ? "merged" : pr.state;
-              csv += `${pr.number},"${pr.title}",${src},${tgt},${merged},${env},${pr.user.login},${pr.merged_at}\n`;
+              csv += `${pr.number},"${pr.title}",${src},${tgt},${merged},${env},${pr.user.login},${pr.merged_at},${pr.created_at},${pr.updated_at}\n`;
             });
-            writeFileSync("pr-report.csv", csv);
 
-      # 3️⃣ Configure AWS credentials via OIDC
+            const fname = `pr-report-${today}.csv`;
+            writeFileSync(fname, csv);
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::632718277269:role/OIDC-PR-S3
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-south-1
 
-      # 4️⃣ Debug: Check file exists
-      - name: Debug CSV
+      - name: Upload CSV to S3 with date
         run: |
-          echo "CSV file contents:"
-          cat pr-report.csv
-          ls -lh
+          FILE=pr-report-$(date +%F).csv
+          aws s3 cp $FILE s3://${{ secrets.S3_BUCKET }}/$FILE
 
-      # 5️⃣ Upload CSV to S3
-      - name: Upload PR report to S3
-        run: |
-          echo "Uploading CSV to S3..."
-          aws s3 cp pr-report.csv s3://pr-daily-report-bucket/pr-report.csv --debug
-
-      # 🟢 SEND EMAIL STEP
       - name: Send PR report email
         uses: dawidd6/action-send-mail@v3
         with:
@@ -77,8 +78,8 @@ jobs:
           server_port: 587
           username: ${{ secrets.MAIL_FROM }}
           password: ${{ secrets.MAIL_PASS }}
-          subject: "PR Report Export"
+          subject: "Daily PR Report - $(date +%F)"
           from: "${{ secrets.MAIL_FROM }}"
           to: "${{ secrets.MAIL_TO }}"
-          body: "Hello,\n\nPR report is generated and uploaded to S3.\n\n- GitHub Actions"
-          attachments: pr-report.csv
+          body: "Hello,\n\nAttached is today's PR activity report.\n\n- GitHub Actions"
+          attachments: pr-report-$(date +%F).csv
