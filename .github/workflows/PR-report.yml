@@ -1,16 +1,24 @@
 name: PR Report Export
 
+# Trigger manually
 on:
   workflow_dispatch:
+
+# OIDC permissions
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   export:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout the repo
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2️⃣ Fetch PR data and create CSV
       - name: Fetch PR data
         uses: actions/github-script@v7
         with:
@@ -37,4 +45,26 @@ jobs:
               const tgt = pr.base.ref;
               const env = tgt === "main" || tgt === "master" ? "docker" : "dev";
               const merged = pr.merged_at ? "merged" : pr.state;
-              csv += `${pr.number},"${pr.title}",${src},${tgt},${merged
+              csv += `${pr.number},"${pr.title}",${src},${tgt},${merged},${env},${pr.user.login},${pr.merged_at}\n`;
+            });
+            writeFileSync("pr-report.csv", csv);
+
+      # 3️⃣ Configure AWS credentials via OIDC
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::632718277269:role/OIDC-PR-S3
+          aws-region: ap-south-1
+
+      # 4️⃣ Debug: Check file exists
+      - name: Debug CSV
+        run: |
+          echo "CSV file contents:"
+          cat pr-report.csv
+          ls -lh
+
+      # 5️⃣ Upload CSV to S3
+      - name: Upload PR report to S3
+        run: |
+          echo "Uploading CSV to S3..."
+          aws s3 cp pr-report.csv s3://pr-daily-report-bucket/pr-report.csv --debug
