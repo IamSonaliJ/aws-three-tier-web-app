@@ -52,7 +52,7 @@ jobs:
             filtered.forEach(pr=>{
               const src = pr.head.ref;
               const tgt = pr.base.ref;
-              const env = tgt === "main" || tgt === "master" ? "docker" : "dev";
+              const env = tgt === "main" || tgt === "master" ? "prod" : "dev";
               const merged = pr.merged_at ? "merged" : pr.state;
               csv += `${pr.number},"${pr.title}",${src},${tgt},${merged},${env},${pr.user.login},${pr.merged_at},${pr.created_at},${pr.updated_at}\n`;
             });
