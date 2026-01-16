@@ -8,7 +8,7 @@ echo "Stopping old containers..."
 docker stop backend || true
 docker stop frontend || true
 
-echo "Removing old containers..."
+echo "Removing old containers"
 docker rm backend || true
 docker rm frontend || true
 
