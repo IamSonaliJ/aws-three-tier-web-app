@@ -63,32 +63,35 @@ jobs:
             --push .
 
 
-      - name: Deploy via SSM
+      - name: Deploy via SSM (Final Fixed)
         run: |
           aws ssm send-command \
             --instance-ids i-040d03f0caf9ea982 \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy Frontend (ECR Fixed)" \
+            --comment "Deploy Frontend Final" \
             --parameters commands='[
-              "set -e",
-      
-              "sudo dnf install -y docker awscli jq",
+              "set -ex",
       
               "sudo systemctl start docker",
-              "sudo systemctl enable docker",
       
-              "export AWS_REGION=ap-south-1",
+              "aws --version",
+              "docker --version",
       
-              "export PATH=$PATH:/usr/local/bin:/usr/bin",
+              "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
       
-              "/usr/bin/aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
+              "sudo docker logout || true",
       
-              "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+              "sudo docker pull --no-cache 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
               "sudo docker stop web || true",
               "sudo docker rm web || true",
       
+              "sudo docker rmi 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest || true",
+      
+              "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+      
               "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
-              "sudo docker ps"
+              "sudo docker ps",
+              "sudo docker images"
             ]'
