@@ -81,7 +81,7 @@ jobs:
       - name: Deploy via SSM
         run: |
           aws ssm send-command \
-            --instance-ids i-06fe393f7e5a98224 \
+            --instance-ids i-040d03f0caf9ea982 \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy Frontend Only" \
             --parameters commands='[
