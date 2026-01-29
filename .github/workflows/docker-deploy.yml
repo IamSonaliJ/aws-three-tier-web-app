@@ -63,34 +63,38 @@ jobs:
             --push .
 
 
-      - name: Deploy via SSM (Final Fixed)
+      - name: Deploy via SSM (Stable Updated)
         run: |
           aws ssm send-command \
             --instance-ids i-00dbf9111b9535964 \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy Frontend Final" \
+            --comment "Deploy Frontend via ECR" \
             --parameters '{
               "commands": [
                 "set -ex",
       
+                "# Start Docker",
+                "sudo systemctl enable docker",
                 "sudo systemctl start docker",
       
+                "# Verify CLI and Docker",
                 "aws --version",
                 "docker --version",
       
+                "# Login to ECR using official AWS command",
                 "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
       
-                "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
-      
+                "# Stop & remove existing container",
                 "sudo docker stop web || true",
                 "sudo docker rm web || true",
       
-                "sudo docker rmi 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest || true",
-      
+                "# Pull latest image from ECR",
                 "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
-                "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+                "# Run container (with ARM64 platform for T4g)",
+                "sudo docker run -d --name web --platform linux/arm64 -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
+                "# Show running containers and images",
                 "sudo docker ps",
                 "sudo docker images"
               ]
