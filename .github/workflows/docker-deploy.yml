@@ -63,27 +63,32 @@ jobs:
             --push .
 
 
-      # Deploy via SSM
       - name: Deploy via SSM
         run: |
           aws ssm send-command \
             --instance-ids i-040d03f0caf9ea982 \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy Frontend (ECR)" \
+            --comment "Deploy Frontend (ECR Fixed)" \
             --parameters commands='[
               "set -e",
-
-              "sudo dnf install -y docker awscli",
-
+      
+              "sudo dnf install -y docker awscli jq",
+      
               "sudo systemctl start docker",
               "sudo systemctl enable docker",
-
-              "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
-
+      
+              "export AWS_REGION=ap-south-1",
+      
+              "export PATH=$PATH:/usr/local/bin:/usr/bin",
+      
+              "/usr/bin/aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
+      
               "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
-
+      
               "sudo docker stop web || true",
               "sudo docker rm web || true",
-
-              "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest"
+      
+              "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+      
+              "sudo docker ps"
             ]'
