@@ -19,9 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Docker
+
+      # Enable Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
 
       # AWS Login
       - name: Configure AWS credentials (OIDC)
@@ -29,6 +31,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::632718277269:role/sonaliJ-oidc-github-role
           aws-region: ap-south-1
+
 
       - name: Check Identity
         run: aws sts get-caller-identity
@@ -46,7 +49,7 @@ jobs:
           echo "DOCKER_TOKEN=$(echo $SECRET | jq -r '.DOCKER_TOKEN')" >> $GITHUB_ENV
 
 
-      # Login
+      # Docker Login
       - name: Docker Login
         run: |
           echo "$DOCKER_TOKEN" | docker login \
@@ -60,28 +63,20 @@ jobs:
 
 
       ########################
-      # BUILD FRONTEND ONLY
+      # BUILD + PUSH (ARM)
       ########################
-      - name: Build Frontend
+      - name: Build & Push Frontend (Multi-Arch)
         working-directory: application-code/web-tier
-        run: docker build -t $DOCKER_USERNAME/frontend:${NEW_TAG} .
-
-
-      ########################
-      # PUSH FRONTEND
-      ########################
-      - name: Push Frontend
         run: |
-          docker push $DOCKER_USERNAME/frontend:${NEW_TAG}
-
-          docker tag $DOCKER_USERNAME/frontend:${NEW_TAG} \
-            $DOCKER_USERNAME/frontend:latest
-
-          docker push $DOCKER_USERNAME/frontend:latest
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t $DOCKER_USERNAME/frontend:${NEW_TAG} \
+            -t $DOCKER_USERNAME/frontend:latest \
+            --push .
 
 
       ########################
-      # DEPLOY FRONTEND ONLY
+      # DEPLOY FRONTEND
       ########################
       - name: Deploy via SSM
         run: |
@@ -93,9 +88,11 @@ jobs:
 
               "set -ex",
 
-              "sudo dnf install -y docker || true",
-              "sudo systemctl enable docker || true",
-              "sudo systemctl start docker || true",
+              "sudo apt-get update -y",
+              "sudo apt-get install -y docker.io",
+
+              "sudo systemctl enable docker",
+              "sudo systemctl start docker",
 
               "SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)",
 
@@ -112,7 +109,7 @@ jobs:
               "docker run -d \
                 --name web \
                 -p 80:80 \
-                --restart always \
+                --restart unless-stopped \
                 $U/frontend:latest"
 
             ]' \
