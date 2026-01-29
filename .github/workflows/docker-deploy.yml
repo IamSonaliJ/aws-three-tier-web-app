@@ -54,6 +54,7 @@ jobs:
 
       # Build & Push
       - name: Build & Push to ECR
+        working-directory: application-code/web-tier
         run: |
           docker buildx build \
             --platform linux/arm64 \
