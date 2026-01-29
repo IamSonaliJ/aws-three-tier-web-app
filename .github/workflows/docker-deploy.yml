@@ -1,9 +1,15 @@
-name: Deploy Frontend Only
+name: Deploy Frontend via ECR + SSM
 
 on:
   push:
     branches:
       - main
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: "632718277269"
+  ECR_REPO: "dev/own-tenant-portal"
+  IMAGE_NAME: "632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal"
 
 jobs:
   deploy:
@@ -20,87 +26,63 @@ jobs:
         uses: actions/checkout@v4
 
 
-      # Enable Buildx
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-
       # AWS Login
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::632718277269:role/sonaliJ-oidc-github-role
-          aws-region: ap-south-1
+          aws-region: ${{ env.AWS_REGION }}
 
 
-      - name: Check Identity
-        run: aws sts get-caller-identity
-
-
-      # DockerHub Creds
-      - name: Fetch Docker creds
+      # Login to ECR
+      - name: Login to ECR
         run: |
-          SECRET=$(aws secretsmanager get-secret-value \
-            --secret-id dockerhub/credentials \
-            --query SecretString \
-            --output text)
-
-          echo "DOCKER_USERNAME=$(echo $SECRET | jq -r '.DOCKER_USERNAME')" >> $GITHUB_ENV
-          echo "DOCKER_TOKEN=$(echo $SECRET | jq -r '.DOCKER_TOKEN')" >> $GITHUB_ENV
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin \
+          $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
 
-      # Docker Login
-      - name: Docker Login
-        run: |
-          echo "$DOCKER_TOKEN" | docker login \
-            -u "$DOCKER_USERNAME" \
-            --password-stdin
-
-
-      # Tag
+      # Set Image Tag
       - name: Set image tag
-        run: echo "NEW_TAG=$(date +%s)" >> $GITHUB_ENV
+        run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
 
-      ########################
-      # BUILD + PUSH (ARM)
-      ########################
-      - name: Build & Push Frontend (Multi-Arch)
-        working-directory: application-code/web-tier
+      # Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+
+      # Build & Push
+      - name: Build & Push to ECR
         run: |
           docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t $DOCKER_USERNAME/frontend:${NEW_TAG} \
-            -t $DOCKER_USERNAME/frontend:latest \
+            --platform linux/arm64 \
+            -t $IMAGE_NAME:$IMAGE_TAG \
+            -t $IMAGE_NAME:latest \
             --push .
 
 
-      ########################
-      # DEPLOY FRONTEND
-      ########################
+      # Deploy via SSM
       - name: Deploy via SSM
         run: |
           aws ssm send-command \
             --instance-ids i-040d03f0caf9ea982 \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy Frontend Only" \
+            --comment "Deploy Frontend (ECR)" \
             --parameters commands='[
               "set -e",
 
-              "sudo dnf install -y docker || true",
+              "sudo dnf install -y docker awscli",
+
               "sudo systemctl start docker",
+              "sudo systemctl enable docker",
 
-              "SECRET=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)",
+              "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
 
-              "U=$(echo $SECRET | jq -r .DOCKER_USERNAME)",
-              "T=$(echo $SECRET | jq -r .DOCKER_TOKEN)",
+              "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
 
-              "echo $T | docker login -u $U --password-stdin",
+              "sudo docker stop web || true",
+              "sudo docker rm web || true",
 
-              "docker pull $U/frontend:latest",
-
-              "docker stop web || true",
-              "docker rm web || true",
-
-              "docker run -d --name web -p 80:80 --restart always $U/frontend:latest"
+              "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest"
             ]'
