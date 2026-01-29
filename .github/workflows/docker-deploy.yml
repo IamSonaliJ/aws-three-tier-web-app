@@ -69,29 +69,29 @@ jobs:
             --instance-ids i-040d03f0caf9ea982 \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy Frontend Final" \
-            --parameters commands='[
-              "set -ex",
+            --parameters '{
+              "commands": [
+                "set -ex",
       
-              "sudo systemctl start docker",
+                "sudo systemctl start docker",
       
-              "aws --version",
-              "docker --version",
+                "aws --version",
+                "docker --version",
       
-              "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
+                "aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 632718277269.dkr.ecr.ap-south-1.amazonaws.com",
       
-              "sudo docker logout || true",
+                "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
-              "sudo docker pull --no-cache 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+                "sudo docker stop web || true",
+                "sudo docker rm web || true",
       
-              "sudo docker stop web || true",
-              "sudo docker rm web || true",
+                "sudo docker rmi 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest || true",
       
-              "sudo docker rmi 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest || true",
+                "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
-              "sudo docker pull 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
+                "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
       
-              "sudo docker run -d --name web -p 80:80 --restart always 632718277269.dkr.ecr.ap-south-1.amazonaws.com/dev/own-tenant-portal:latest",
-      
-              "sudo docker ps",
-              "sudo docker images"
-            ]'
+                "sudo docker ps",
+                "sudo docker images"
+              ]
+            }'
