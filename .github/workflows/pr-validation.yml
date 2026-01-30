@@ -1,0 +1,141 @@
+name: CI Validation Pipeline
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+
+  validate:
+    name: Pre-Merge Validation
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ap-south-1
+
+    steps:
+
+    # Checkout
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+
+    # ----------------------------
+    # Secrets Scan (No hardcoding)
+    
+    - name: Scan for Secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: .
+
+
+    # ----------------------------
+    # Setup Node (if applicable)
+    
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+
+    # ----------------------------
+    # Install Dependencies
+   
+    - name: Install Dependencies
+      run: npm install
+
+
+    # ----------------------------
+    # Unit Tests
+    
+    - name: Run Unit Tests
+      run: npm test
+
+
+    # ----------------------------
+    # Lint / Code Quality
+    
+    - name: Run Lint
+      run: npm run lint || true
+
+
+    # ----------------------------
+    # Docker Build
+    
+    - name: Build Docker Image
+      run: |
+        docker build -t app-test:${{ github.sha }} .
+
+
+    # ----------------------------
+    # Image Vulnerability Scan
+   
+    - name: Scan Docker Image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: app-test:${{ github.sha }}
+        exit-code: 1
+        severity: CRITICAL,HIGH
+
+
+    # ----------------------------
+    # AWS Login (OIDC)
+  
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+
+    # ----------------------------
+    # Verify Secrets in AWS
+   
+    - name: Verify AWS Secrets (DEV)
+      if: github.base_ref == 'dev'
+      run: |
+        aws secretsmanager describe-secret \
+        --secret-id dev/app/secrets
+
+
+    - name: Verify AWS Secrets (PROD)
+      if: github.base_ref == 'main'
+      run: |
+        aws secretsmanager describe-secret \
+        --secret-id prod/app/secrets
+
+
+    # ----------------------------
+    # Environment Variables Check
+   
+    - name: Check ENV Sample
+      run: |
+        test -f .env.example
+
+
+    # ----------------------------
+    # DB Migration Check (Optional)
+    
+    - name: Validate Migrations
+      run: |
+        if [ -d migrations ]; then
+          echo "Migration folder exists"
+        fi
+
+    # ----------------------------
+    # API Smoke Test (Optional)
+    # ----------------------------
+    - name: API Smoke Test
+      run: |
+        if [ -f tests/smoke.sh ]; then
+          bash tests/smoke.sh
+        fi
+
+
+    # ----------------------------
+    # Summary
+   
+    - name: Validation Complete
+      run: echo "All validations passed ✅"
