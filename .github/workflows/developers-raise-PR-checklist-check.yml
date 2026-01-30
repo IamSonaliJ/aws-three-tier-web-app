@@ -2,7 +2,7 @@ name: PR Checklist Validator
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, synchronize]
 
 jobs:
   validate:
