@@ -3,7 +3,7 @@ name: Deploy Frontend via ECR + SSM
 on:
   push:
     branches:
-      - main
+      - ["PR Checklist Validator"]
 
 env:
   AWS_REGION: ap-south-1
@@ -13,6 +13,7 @@ env:
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
