@@ -1,4 +1,4 @@
-name: PR Checklist Validator (it will popp when developer raises PR)
+name: PR Checklist Validator ( developer raises PR...all ticks passed then merge otherwise fail)
 
 on:
   pull_request:
