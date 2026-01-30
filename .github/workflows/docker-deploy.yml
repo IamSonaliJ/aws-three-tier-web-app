@@ -1,9 +1,10 @@
 name: Deploy Frontend via ECR + SSM
 
 on:
-  push:
-    branches:
-      - ["PR Checklist Validator"]
+  workflow_run:
+    workflows: ["PR Checklist Validator"]
+    types:
+      - completed
 
 env:
   AWS_REGION: ap-south-1
