@@ -2,7 +2,7 @@ name: Deploy Frontend via ECR + SSM
 
 on:
   workflow_run:
-    workflows: ["PR Checklist Validator"]
+    workflows: ["CI Validation Pipeline"]
     types:
       - completed
 
