@@ -9,7 +9,7 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy rest of source
+# Copy rest of source..
 COPY . .
 
 # Build React app for production
