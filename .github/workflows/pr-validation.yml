@@ -1,6 +1,4 @@
-
 name: CI Validation Pipeline
-
 
 on:
   pull_request:
@@ -11,21 +9,24 @@ permissions:
   id-token: write
   contents: read
 
-
 jobs:
   validate:
     name: Infra & Secrets Validation
     runs-on: ubuntu-latest
 
-
     env:
       AWS_REGION: ap-south-1
 
-
     steps:
+
       # Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
+
+
+      # Install jq
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
 
       # AWS Authentication using GitHub OIDC
@@ -36,58 +37,130 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
 
-      # Verify IAM Role (Check who is logged in)
+      # Verify IAM Role
       - name: Verify IAM Role
+        run: aws sts get-caller-identity
+
+
+      # Load Infra Config
+      - name: Load Infra Config
         run: |
-          aws sts get-caller-identity
-      # ✅ Verify EC2 Instance ID
-      - name: Verify EC2 Instance
+          set -e
+
+          SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id dev/infra/config \
+            --query SecretString \
+            --output text)
+
+          echo "$SECRET" > infra.json
+
+          echo "INSTANCE_ID=$(jq -r .INSTANCE_ID infra.json)" >> $GITHUB_ENV
+          echo "ECR_REPO=$(jq -r .ECR_REPO infra.json)" >> $GITHUB_ENV
+          echo "RDS_ID=$(jq -r .RDS_ID infra.json)" >> $GITHUB_ENV
+          echo "EXPECTED_ROLE=$(jq -r .EC2_ROLE infra.json)" >> $GITHUB_ENV
+
+
+      # Verify EC2
+      - name: Verify EC2 is Running
         run: |
-          aws ec2 describe-instances \
-            --instance-ids ${{ secrets.INSTANCE_ID }} \
-            --query "Reservations[].Instances[].InstanceId"
+          set -e
+
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query "Reservations[].Instances[].State.Name" \
+            --output text)
+
+          echo "EC2 State: $STATE"
+
+          if [ "$STATE" != "running" ]; then
+            echo "EC2 is NOT running"
+            exit 1
+          fi
 
 
-
-
-      # Verify DEV Secrets
-      - name: Verify DEV Secrets
-        if: github.base_ref == 'dev'
+      # Verify EC2 IAM Role
+      - name: Verify EC2 IAM Role
         run: |
-          aws secretsmanager describe-secret \
-            --secret-id dev/app/secrets
+          set -e
+
+          PROFILE_ARN=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].IamInstanceProfile.Arn" \
+            --output text)
+
+          if [ "$PROFILE_ARN" = "None" ] || [ -z "$PROFILE_ARN" ]; then
+            echo "❌ No IAM Role attached to EC2"
+            exit 1
+          fi
+
+          ROLE_NAME=$(basename "$PROFILE_ARN")
+
+          echo "Attached Role: $ROLE_NAME"
+          echo "Expected Role: $EXPECTED_ROLE"
+
+          if [ "$ROLE_NAME" != "$EXPECTED_ROLE" ]; then
+            echo "❌ Wrong IAM Role attached"
+            exit 1
+          fi
+
+          echo "✅ Correct IAM Role attached"
 
 
-      # Verify PROD Secrets
-      - name: Verify PROD Secrets
-        if: github.base_ref == 'main'
+      # Verify Required Secrets
+      - name: Verify Required Secrets
         run: |
-          aws secretsmanager describe-secret \
-            --secret-id prod/app/secrets
+          set -e
+
+          SECRETS=(
+            "/dev/own/node/app-config"
+            "/dev/own/database/rds/credentials"
+            "/dev/own/cognito/web"
+            "/dev/own/node/eenv"
+            "/dev/own/cognito/mobile"
+            "/dev/own/twilio/credentials"
+            "/dev/own/database/credentials"
+          )
+
+          for SECRET in "${SECRETS[@]}"; do
+            echo "Checking $SECRET"
+
+            aws secretsmanager describe-secret \
+              --secret-id "$SECRET" \
+              >/dev/null
+
+            echo "✅ OK"
+          done
 
 
-      # Verify ECR Repository
+      # Verify ECR (From Secret)
       - name: Verify ECR Repository
         run: |
+          set -e
+
+          echo "Checking ECR: $ECR_REPO"
+
           aws ecr describe-repositories \
-            --repository-names dev/own-node-backend
+            --repository-names "$ECR_REPO"
 
 
-      # Verify RDS Instance
+      # Verify RDS (From Secret)
       - name: Verify RDS Instance
         run: |
-          aws rds describe-db-instances \
-            --query "DBInstances[].DBInstanceIdentifier"
+          set -e
+
+          STATUS=$(aws rds describe-db-instances \
+            --db-instance-identifier "$RDS_ID" \
+            --query "DBInstances[0].DBInstanceStatus" \
+            --output text)
+
+          echo "RDS Status: $STATUS"
+
+          if [ "$STATUS" != "available" ]; then
+            echo "RDS is not available"
+            exit 1
+          fi
 
 
-      # Validation Complete
+      # Done
       - name: Validation Complete
-        run: echo " IAM, Secrets, ECR, and RDS validation successful"
-
-
-
-
-
-
-
- 
+        run: echo "✅ Infra validation successful"
